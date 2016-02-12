@@ -1,3 +1,5 @@
+
+
 class Point:
 
     def __init__(self,x=0,y=0,z=0):
@@ -60,9 +62,15 @@ class Scene:
             self.tabSphere.append(element)
 
     def process(self):
+        direction=Vector(0,1,0)
         for i in range(0,self.camera.screen_width):
             for j in range(0.self.camera.screen_height):
-                v=Vector(0,1,0)
+                position=Point(i,j,0)
+                min = False
+                for sphere in self.tabSphere:
+                    if abs(position+l*(direction)-(sphere.point))**2:
+                        
+                    
         
 
     
