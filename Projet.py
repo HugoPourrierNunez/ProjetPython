@@ -51,17 +51,23 @@ class Scene:
         self.camera=camera
         self.tabLight=[]
         self.tabSphere=[]
+        self.buffer=([0]*self.camera.screen_width,[0]*self.camera.screen_height)
 
     def __add__(self, element):
         if isinstance(element,Light):
             self.tabLight.append(element)
         elif isinstance(element,Sphere):
             self.tabSphere.append(element)
+
+    def process(self):
+        for i in range(0,self.camera.screen_width):
+            for j in range(0.self.camera.screen_height):
+                v=Vector(0,1,0)
         
 
     
 scene = Scene(Camera(1,1,1,1,1))
 sphere = Sphere(0,0,0)
 scene+1
-print(len(scene.tabSphere))
+print(scene.buffer[0][0])
 
