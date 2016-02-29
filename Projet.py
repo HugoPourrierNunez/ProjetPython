@@ -32,9 +32,6 @@ class Vector:
     def myprint(self):
         print("x=",self.x," y=",self.y," z=",self.z)
 
-    def scalaire(self,v):
-        return self.x*v.x+self.y*v.y+self.z*v.z
-
     def __add__(self, vB):
         return Vector(self.x+vB.x,self.y+vB.y,self.z+vB.z) 
     
@@ -103,6 +100,30 @@ class Sphere:
         self.speculaire=speculaire
         self.brillance=brillance
 
+    def colision(self,v,p):
+        point=False
+        a = v.x**2 + v.y**2 + v.z**2
+        b= 2*(v.x*(p.x-self.point.x)+v.y*(p.y-self.point.y)+v.z*(p.z-self.point.z))
+        c = ((self.point.x-p.x)**2+(self.point.y-p.y)**2+(self.point.z-p.z)**2)-self.rayon**2
+        #b= 2*(v.x*(p.x)+v.y*(p.y)+v.z*(p.z))
+        #c = ((p.x)**2+(p.y)**2+(p.z)**2)-self.rayon**2
+        det = b**2-(4*a*c)
+        if det>0:
+            t1 = (-b+sqrt(det))/(2*a)
+            p1=Point(v.x*t1+p.x,v.y*t1+p.y,v.z*t1+p.z)
+            
+            t2 = (-b-sqrt(det))/(2*a)
+            p2=Point(v.x*t2+p.x,v.y*t2+p.y,v.z*t2+p.z)
+
+            if p1.norme(p)>p2.norme(p):
+                point=p2
+            else:
+                point=p1
+        elif det==0:
+            t=-b/(2*a)
+            point=Point(v.x*t+p.x,v.y*t+p.y,v.z*t+p.z)
+        return point
+
 class Scene:
     
     def __init__(self,camera):
@@ -113,8 +134,7 @@ class Scene:
         self.buffer = self.image.load()
         for x in range(self.camera.screen_width):
             for y in range(self.camera.screen_height):
-                self.buffer[x,y]=(0,0,0)
-                     
+                self.buffer[x,y]=(0,0,0)         
     def __add__(self, element):
         if isinstance(element,Light):
             self.tabLight.append(element)
@@ -130,22 +150,8 @@ class Scene:
                 pointMin = False
                 colorMin = False
                 for sphere in self.tabSphere:
-                    find=False
-                    a = direction.x**2 + direction.y**2 + direction.z**2
-                    b= 2*(direction.x*(position.x-sphere.point.x)+direction.y*(position.y-sphere.point.y)+direction.z*(position.z-sphere.point.z))
-                    c = ((sphere.point.x-position.x)**2+(sphere.point.y-position.y)**2+(sphere.point.z-position.z)**2)-sphere.rayon**2
-                    det = b**2-(4*a*c)
-                    if det>0:
-                        t1 = (-b+sqrt(det))/(2*a)
-                        t2 = (-b-sqrt(det))/(2*a)
-                        if t1>t2:
-                            t1=t2
-                        find=t1
-                    elif det==0:
-                        find=-b/(2*a)
-                    if find!=False:
-                        p=Point(direction.x*find+position.x,direction.y*find+position.y,direction.z*find+position.z)
-                        
+                    p=sphere.colision(direction,position)
+                    if p!=False:
                         if pointMin==False:
                             normeMin=p.norme(position)
                             pointMin=p
@@ -158,27 +164,40 @@ class Scene:
                                 sphereMin=sphere
 
                 if pointMin!=False:
+                    p=pointMin
                     for light in self.tabLight:
                         
-                        if light.mode == Light.DIFFUSE or light.mode == Light.PHONG:
-                            L=Vector.fromPoint(p,light.point,True)
-                            N=Vector.fromPoint(sphereMin.point,p,True)
-                            intensite=L*N*sphereMin.diffuse*light.intensite
-                            if intensite>0:
-                                self.buffer[i,j]=Color.addition(self.buffer[i,j],sphereMin.color,intensite)
-                                
                         if light.mode == Light.AMBIANTE or light.mode == Light.PHONG:
                             self.buffer[i,j]=Color.addition(self.buffer[i,j],sphereMin.color,sphereMin.ambiante*light.intensite)
-                            
-                        if light.mode == Light.SPECULAIRE or light.mode == Light.PHONG:
+
+                        if light.mode!= Light.AMBIANTE :
                             L=Vector.fromPoint(p,light.point,True)
                             N=Vector.fromPoint(sphereMin.point,p,True)
-                            V=Vector.fromPoint(p,position,True)
-                            R=N*2*(N*L)-L
+                            
                             if L*N>0:
-                                intensite=(R*V)**sphereMin.brillance*sphereMin.speculaire*light.intensite
-                                if intensite>0:
-                                    self.buffer[i,j]=Color.addition(self.buffer[i,j],light.color,intensite)
+                                directLight=True
+                                for sphere in self.tabSphere:
+                                    if sphere != sphereMin:
+                                        col=sphere.colision(L,p)
+                                        if col!=False and p.norme(col)<p.norme(light.point) and N*Vector.fromPoint(p,col)>0:
+                                            directLight=False
+                                            break
+                                
+                                if directLight:
+                                    
+                                    if light.mode == Light.DIFFUSE or light.mode == Light.PHONG :
+                                        intensite=L*N*sphereMin.diffuse*light.intensite
+                                        if intensite>0:
+                                            self.buffer[i,j]=Color.addition(self.buffer[i,j],sphereMin.color,intensite)
+                                        
+                                    if light.mode == Light.SPECULAIRE or light.mode == Light.PHONG:
+                                        V=Vector.fromPoint(p,position,True)
+                                        R=N*2*(N*L)-L
+                                        intensite=(R*V)**sphereMin.brillance*sphereMin.speculaire*light.intensite
+                                        if intensite>0:
+                                            self.buffer[i,j]=Color.addition(self.buffer[i,j],light.color,intensite)
+
+
                                           
     def draw(self,name):
         file=open(name,'w')
@@ -190,14 +209,20 @@ class Scene:
     
 scene = Scene(Camera(500,500,500,500,1))
 
-scene+Sphere(Point(250,100,100), 50, Color(0,0,255),ambiante=.2)
-scene+Sphere(Point(250,300,100), 100, Color(255,0,0))
+scene+Sphere(Point(350,250,350), 100, Color(255,0,0))
+scene+Sphere(Point(250,200,250), 50, Color(0,0,255))
+scene+Sphere(Point(150,245,150), 20, Color(0,255,0))
+scene+Sphere(Point(200,356,142), 70, Color(255,0,0))
+scene+Sphere(Point(325,6,35), 114, Color(0,0,255))
+scene+Sphere(Point(10,150,15), 28, Color(0,255,0))
+
 
 #scene+Light(Point(0,0,0), mode=Light.SPECULAIRE)
 #scene+Light(Point(0,0,0), mode=Light.DIFFUSE)
-#scene+Light(Point(250,250,0))
+#scene+Light(Point(0,0,0))
 
-scene+Light(Point(0,0,0), mode=Light.PHONG)
+scene+Light(Point(0,250,0), mode=Light.PHONG)
+scene+Light(Point(0,0,0), mode=Light.PHONG, intensite=0.5)
 #scene+Light(Point(500,500,0), mode=Light.PHONG)
 
 scene.process()
