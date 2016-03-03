@@ -1,6 +1,7 @@
 from math import *
 from PIL import Image
 
+#Classe point 
 class Point:
 
     def __init__(self,x=0,y=0,z=0):
@@ -8,16 +9,19 @@ class Point:
         self.y=y
         self.z=z
 
+    #Calcul norme entre 2 points
     def norme(self,p):
         return sqrt((p.x-self.x)**2+(p.y-self.y)**2+(p.z-self.z)**2)
-        
+
+#Classe Vector pour tout les calculs vectoriels
 class Vector:
 
     def __init__(self,x=0,y=0,z=0):
         self.x=x
         self.y=y
         self.z=z
-
+        
+    #Crée un vecteur à partir de 2 point, normalisé ou non
     def fromPoint(p1,p2,norm=False):
         x=p2.x-p1.x
         y=p2.y-p1.y
@@ -32,6 +36,7 @@ class Vector:
     def myprint(self):
         print("x=",self.x," y=",self.y," z=",self.z)
 
+    #Redéfinitions des différents opérateurs
     def __add__(self, vB):
         return Vector(self.x+vB.x,self.y+vB.y,self.z+vB.z) 
     
@@ -47,19 +52,23 @@ class Vector:
     def __div__(self, c):
         return Vector(self.x/c, self.y/c,self.z/c)  
 
+#Classe qui permet d'enregistrer et de faire des opération sur les couleurs
 class Color:
 
     def __init__(self,r=0,g=0,b=0):
         self.b=b
         self.r=r
         self.g=g
-        
+
+    #Retourne les valeur dans un tuple
     def getTuple(self):
         return (self.r,self.g,self.b)
 
+    #Additionne 2 couleur 
     def addition(t,c,intensite=1):
         return (int(t[0]+c.r*intensite),int(t[1]+c.g*intensite),int(t[2]+c.b*intensite))
 
+    #Fait une moyenne entre 2 couleurs
     def mixe(self,c):
         return Color(int((self.r+c.r)/2),int((self.g+c.g)/2),int((self.b+c.b)/2))
 
@@ -78,7 +87,7 @@ class Camera:
         self.height=height
         self.focale=focale
         
-
+#Class Light qui ermet de caractériser les différentes propriétés d'une lumière et son type
 class Light:
     AMBIANTE=1
     DIFFUSE=2
@@ -89,7 +98,8 @@ class Light:
         self.color=color
         self.mode=mode
         self.intensite=intensite
-
+        
+#Classe Sphere comprenant un rayon 
 class Sphere:
     def __init__(self,point,rayon,color,ambiante=.2,diffuse=1,speculaire=1,brillance=20):
         self.point=point
@@ -100,13 +110,12 @@ class Sphere:
         self.speculaire=speculaire
         self.brillance=brillance
 
+    #Détecte une colision entre une Sphère et un vecteur
     def colision(self,v,p):
         point=False
         a = v.x**2 + v.y**2 + v.z**2
         b= 2*(v.x*(p.x-self.point.x)+v.y*(p.y-self.point.y)+v.z*(p.z-self.point.z))
         c = ((self.point.x-p.x)**2+(self.point.y-p.y)**2+(self.point.z-p.z)**2)-self.rayon**2
-        #b= 2*(v.x*(p.x)+v.y*(p.y)+v.z*(p.z))
-        #c = ((p.x)**2+(p.y)**2+(p.z)**2)-self.rayon**2
         det = b**2-(4*a*c)
         if det>0:
             t1 = (-b+sqrt(det))/(2*a)
@@ -124,6 +133,7 @@ class Sphere:
             point=Point(v.x*t+p.x,v.y*t+p.y,v.z*t+p.z)
         return point
 
+#Classe Scene qui gère tout les éléments et le rendu
 class Scene:
     
     def __init__(self,camera):
@@ -134,16 +144,20 @@ class Scene:
         self.buffer = self.image.load()
         for x in range(self.camera.screen_width):
             for y in range(self.camera.screen_height):
-                self.buffer[x,y]=(0,0,0)         
+                self.buffer[x,y]=(0,0,0)
+
+    #Ajout d'un éléments (lumière ou sphère)            
     def __add__(self, element):
         if isinstance(element,Light):
             self.tabLight.append(element)
         elif isinstance(element,Sphere):
             self.tabSphere.append(element)
 
+    #Partie qui fait l'illumination de sphère et rempli un buffer avec les couleurs
     def process(self):
         direction=Vector(0,0,1)
         maxI=0
+        #Parcourt de tout les pixels de la camera
         for i in range(0,self.camera.screen_width):
             for j in range(0,self.camera.screen_height):
                 position=Vector(i,j,0)
@@ -165,8 +179,9 @@ class Scene:
 
                 if pointMin!=False:
                     p=pointMin
+                    #Parcourt de toutes les lumières
                     for light in self.tabLight:
-                        
+                        #Lumière ambiante
                         if light.mode == Light.AMBIANTE or light.mode == Light.PHONG:
                             self.buffer[i,j]=Color.addition(self.buffer[i,j],sphereMin.color,sphereMin.ambiante*light.intensite)
 
@@ -176,6 +191,7 @@ class Scene:
                             
                             if L*N>0:
                                 directLight=True
+                                #Parcourt de toutes les autres sphère pour le calcul des ombres
                                 for sphere in self.tabSphere:
                                     if sphere != sphereMin:
                                         col=sphere.colision(L,p)
@@ -184,12 +200,13 @@ class Scene:
                                             break
                                 
                                 if directLight:
-                                    
+                                    #Lumière diffuse
                                     if light.mode == Light.DIFFUSE or light.mode == Light.PHONG :
                                         intensite=L*N*sphereMin.diffuse*light.intensite
                                         if intensite>0:
                                             self.buffer[i,j]=Color.addition(self.buffer[i,j],sphereMin.color,intensite)
-                                        
+
+                                    #Lumière spéculaire    
                                     if light.mode == Light.SPECULAIRE or light.mode == Light.PHONG:
                                         V=Vector.fromPoint(p,position,True)
                                         R=N*2*(N*L)-L
@@ -198,16 +215,18 @@ class Scene:
                                             self.buffer[i,j]=Color.addition(self.buffer[i,j],light.color,intensite)
 
 
-                                          
+    #Fonction qui enregistre les données du buffer dans un fichier JPEG                                      
     def draw(self,name):
         file=open(name,'w')
         self.image.save(file, "JPEG")
         file.close()
                     
         
-
+#Exemple
     
 scene = Scene(Camera(500,500,500,500,1))
+
+#scene+Sphere(Point(250,250,250), 175, Color(255,0,0))
 
 scene+Sphere(Point(350,250,350), 100, Color(255,0,0))
 scene+Sphere(Point(250,200,250), 50, Color(0,0,255))
@@ -222,7 +241,7 @@ scene+Sphere(Point(10,150,15), 28, Color(0,255,0))
 #scene+Light(Point(0,0,0))
 
 scene+Light(Point(0,250,0), mode=Light.PHONG)
-scene+Light(Point(0,0,0), mode=Light.PHONG, intensite=0.5)
+scene+Light(Point(0,0,0), mode=Light.PHONG,intensite=0.5)
 #scene+Light(Point(500,500,0), mode=Light.PHONG)
 
 scene.process()
